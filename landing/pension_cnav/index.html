@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Juste Retour — Erreur de calcul de pension de retraite</title>
+<meta name="description" content="Juste Retour vérifie le calcul de votre pension (régime général et Agirc-Arrco) à partir de vos relevés et bulletins, et prépare — si une erreur est trouvée — une réclamation chiffrée adressée à votre caisse.">
+<style>
+  :root {
+    --marine: #1b2a4a;
+    --marine-deep: #101a30;
+    --cream: #faf6ec;
+    --paper: #f3ecdd;
+    --ochre: #a5762c;
+    --ochre-deep: #8a611f;
+    --ink: #21242c;
+    --ink-soft: #4a4f5c;
+    --ligne: #ddd3bd;
+    --vert: #2f6b46;
+    --rouge: #a33d3d;
+    --serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: var(--sans); font-size: 19px; line-height: 1.6; color: var(--ink); background: var(--cream); }
+  a { color: var(--marine); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  h1, h2, h3 { font-family: var(--serif); color: var(--marine-deep); line-height: 1.25; margin: 0 0 0.5em 0; }
+  h1 { font-size: 2.5rem; }
+  h2 { font-size: 1.9rem; }
+  h3 { font-size: 1.3rem; }
+  p { margin: 0 0 1em 0; }
+  .btn { display: inline-block; font-family: var(--sans); font-size: 1.05rem; font-weight: 600; padding: 16px 30px; border-radius: 6px; text-decoration: none; border: 2px solid transparent; cursor: pointer; transition: background-color 0.15s ease; }
+  .btn-primary { background: var(--ochre); color: #fff; }
+  .btn-primary:hover { background: var(--ochre-deep); }
+  header.site { background: var(--marine-deep); color: #f2ede1; padding: 18px 0; }
+  header.site .wrap { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-size: 1.4rem; color: #fff; text-decoration: none; }
+  .logo .marque { color: var(--ochre); }
+  nav.site-nav { display: flex; gap: 24px; font-size: 0.98rem; }
+  nav.site-nav a { color: #d9d3c2; text-decoration: none; }
+  nav.site-nav a:hover { color: #fff; }
+  .hero { background: var(--marine-deep); color: #f2ede1; padding: 56px 0 72px; }
+  .hero h1 { color: #fff; max-width: 22ch; }
+  .hero .accroche { font-size: 1.2rem; color: #d9d3c2; max-width: 56ch; }
+  .hero .cta-row { margin-top: 28px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .hero .sans-frais { font-size: 0.95rem; color: #cdd6e6; }
+  .badge-confiance { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; padding: 8px 16px; font-size: 0.9rem; color: #e7e2d3; margin-bottom: 20px; }
+  .stats { background: var(--paper); border-top: 1px solid var(--ligne); border-bottom: 1px solid var(--ligne); padding: 40px 0; }
+  .stats .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px; }
+  .stat-item .chiffre { font-family: var(--serif); font-size: 2.2rem; color: var(--marine); display: block; }
+  .stat-item .legende { font-size: 0.95rem; color: var(--ink-soft); }
+  .stat-item .src { display: block; font-size: 0.78rem; color: var(--ink-soft); opacity: 0.8; margin-top: 6px; font-style: italic; }
+  section { padding: 64px 0; }
+  .section-intro { max-width: 62ch; margin-bottom: 40px; }
+  .section-intro p { color: var(--ink-soft); font-size: 1.05rem; }
+  .etapes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  .etape { background: #fff; border: 1px solid var(--ligne); border-radius: 10px; padding: 28px 24px; }
+  .etape .numero { font-family: var(--serif); font-size: 1.1rem; color: #fff; background: var(--marine); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+  .etape p { color: var(--ink-soft); font-size: 0.98rem; margin: 0; }
+  .modele { background: var(--marine); color: #f2ede1; border-radius: 14px; padding: 44px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+  .modele h2 { color: #fff; }
+  .modele ul { list-style: none; padding: 0; margin: 0; }
+  .modele li { padding-left: 30px; position: relative; margin-bottom: 14px; color: #e2ddcd; }
+  .modele li::before { content: "✓"; position: absolute; left: 0; color: var(--ochre); font-weight: bold; }
+  .modele .prix-nul { text-align: center; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: 30px; }
+  .modele .prix-nul .montant { font-family: var(--serif); font-size: 3rem; color: var(--ochre); display: block; }
+  .modele .prix-nul .sous { font-size: 0.95rem; color: #cdd6e6; }
+  .confiance { background: var(--paper); }
+  .confiance-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  .confiance-item { background: #fff; border-radius: 10px; padding: 24px; border-left: 4px solid var(--ochre); }
+  .confiance-item h3 { font-size: 1.1rem; margin-bottom: 6px; }
+  .confiance-item p { color: var(--ink-soft); font-size: 0.98rem; margin: 0; }
+  .avertissement-arnaque { margin-top: 28px; background: #fff8ec; border: 1px solid #e8d2a0; border-radius: 10px; padding: 20px 24px; font-size: 0.98rem; }
+  .avertissement-arnaque strong { color: var(--ochre-deep); }
+  .pieces-liste { background: #fff; border: 1px solid var(--ligne); border-radius: 10px; padding: 24px 28px; }
+  .pieces-liste ul { margin: 0; padding-left: 22px; color: var(--ink-soft); }
+  .formulaire-section { background: #fff; border: 1px solid var(--ligne); border-radius: 14px; padding: 44px; }
+  .formulaire-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: start; }
+  form.lead-form label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.95rem; color: var(--marine-deep); }
+  form.lead-form input[type="text"], form.lead-form input[type="email"] { width: 100%; padding: 14px 16px; font-size: 1.05rem; border: 1px solid #c7bfa8; border-radius: 6px; margin-bottom: 20px; font-family: var(--sans); background: var(--cream); }
+  form.lead-form input:focus { outline: 3px solid var(--ochre); outline-offset: 1px; }
+  .consentement { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; color: var(--ink-soft); margin-bottom: 22px; }
+  .consentement input { margin-top: 5px; }
+  .form-message { margin-top: 16px; font-size: 0.95rem; padding: 12px 16px; border-radius: 6px; display: none; }
+  .form-message.ok { display: block; background: #e8f2ea; color: var(--vert); border: 1px solid #bfdcc7; }
+  .form-message.err { display: block; background: #f6e9e9; color: var(--rouge); border: 1px solid #e3c3c3; }
+  .mention-legale { background: var(--paper); border-top: 1px solid var(--ligne); font-size: 0.88rem; color: var(--ink-soft); padding: 32px 0; }
+  .mention-legale strong { color: var(--ink); }
+  footer.site { background: var(--marine-deep); color: #b9c0d0; padding: 30px 0; font-size: 0.88rem; }
+  @media (max-width: 860px) {
+    .modele, .confiance-grid, .formulaire-grid { grid-template-columns: 1fr; }
+    .etapes { grid-template-columns: 1fr; }
+    h1 { font-size: 2rem; }
+    body { font-size: 18px; }
+    .formulaire-section { padding: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a href="#" class="logo"><span class="marque">Juste</span>&nbsp;Retour</a>
+    <nav class="site-nav">
+      <a href="#etapes">Comment ça marche</a>
+      <a href="#confiance">Notre engagement</a>
+      <a href="#dossier">Vérifier mon dossier</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <span class="badge-confiance">🔒 Démarche amiable, sans engagement</span>
+    <h1>Votre pension de retraite a peut-être été mal calculée.</h1>
+    <p class="accroche">Juste Retour vérifie le calcul de votre pension (régime général et Agirc-Arrco) à partir de vos relevés et bulletins, et prépare — si une erreur est trouvée — une réclamation chiffrée adressée à votre caisse.</p>
+    <div class="cta-row">
+      <a href="#dossier" class="btn btn-primary" data-cta="principal">Vérifier mon dossier</a>
+      <span class="sans-frais">Gratuit — vous ne payez que si vous récupérez</span>
+    </div>
+  </div>
+</section>
+
+
+<section class="stats">
+  <div class="wrap grid">
+    
+    <div class="stat-item">
+      <span class="chiffre">1 pension sur 9</span>
+      <span class="legende">liquidée en 2025 comportait une erreur ayant une portée financière</span>
+      <span class="src">Source : Cour des comptes, certification des comptes de la Sécurité sociale, 2025</span>
+    </div>
+    
+    <div class="stat-item">
+      <span class="chiffre">Jusqu&#39;à 10 000 €</span>
+      <span class="legende">de préjudice possible sur la durée de versement de la pension, selon la nature de l&#39;erreur constatée</span>
+      <span class="src">Source : Cour des comptes, certification des comptes de la Sécurité sociale, 2025</span>
+    </div>
+    
+    <div class="stat-item">
+      <span class="chiffre">0 €</span>
+      <span class="legende">à payer avant de savoir si votre dossier comporte une erreur</span>
+      <span class="src">Source : modèle au succès (interne)</span>
+    </div>
+    
+  </div>
+</section>
+
+
+<section id="etapes">
+  <div class="wrap">
+    <div class="section-intro">
+      <h2>Trois étapes, sans papiers à remplir seul</h2>
+      <p>Vous envoyez vos documents, nous nous occupons de l'analyse. Vous ne payez que si votre démarche aboutit à un versement effectif.</p>
+    </div>
+    <div class="etapes">
+      
+      <div class="etape">
+        <div class="numero">1</div>
+        <p>Vous envoyez votre relevé de carrière et vos derniers bulletins de pension (ou de salaire), en toute confidentialité.</p>
+      </div>
+      
+      <div class="etape">
+        <div class="numero">2</div>
+        <p>Notre moteur de calcul vérifie le salaire annuel moyen, les trimestres validés et les majorations, et repère les incohérences.</p>
+      </div>
+      
+      <div class="etape">
+        <div class="numero">3</div>
+        <p>Si une erreur est confirmée, nous rédigeons un projet de réclamation chiffré, prêt à être envoyé à votre caisse.</p>
+      </div>
+      
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="modele">
+      <div>
+        <h2>Gratuit, sauf succès</h2>
+        <ul>
+          <li>Aucun frais pour la vérification initiale de votre dossier</li>
+          <li>Aucun frais d'avance à aucune étape de la démarche</li>
+          <li>Une rémunération n'est due que si une somme est effectivement récupérée</li>
+          <li>Vous restez libre d'arrêter la démarche à tout moment</li>
+        </ul>
+      </div>
+      <div class="prix-nul">
+        <span class="montant">0 €</span>
+        <span class="sous">à payer tant que vous n'avez rien récupéré</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="confiance" class="confiance">
+  <div class="wrap">
+    <div class="section-intro">
+      <h2>Notre engagement de confiance</h2>
+      <p>Ces démarches attirent les offres abusives. Voici précisément ce que nous faisons, et ne faisons pas.</p>
+    </div>
+    <div class="confiance-grid">
+      <div class="confiance-item">
+        <h3>Confidentialité de vos documents</h3>
+        <p>Vos documents ne sont utilisés que pour l'analyse de votre dossier et ne sont jamais transmis à des tiers commerciaux.</p>
+      </div>
+      <div class="confiance-item">
+        <h3>Démarche amiable d'abord</h3>
+        <p>Nous privilégions systématiquement la réclamation amiable avant toute autre voie.</p>
+      </div>
+      <div class="confiance-item">
+        <h3>Sans engagement</h3>
+        <p>Le dépôt de vos documents ne vous engage à rien. Vous décidez, à chaque étape, si vous souhaitez poursuivre.</p>
+      </div>
+      <div class="confiance-item">
+        <h3>Un rôle clairement défini</h3>
+        <p>Nous préparons une réclamation chiffrée en qualité de mandataire. Nous ne nous substituons pas à un avocat et ne délivrons pas de conseil juridique.</p>
+      </div>
+    </div>
+    <div class="avertissement-arnaque">
+      <strong>Un doute sur notre légitimité ?</strong> Nous ne vous demanderons jamais de payer avant tout résultat, jamais par virement instantané, carte cadeau ou espèces, et nous ne vous appellerons jamais pour exiger une décision immédiate. Prenez le temps de vérifier, de comparer, d'en parler à un proche.
+    </div>
+  </div>
+</section>
+
+
+<section>
+  <div class="wrap">
+    <div class="section-intro">
+      <h2>Les documents dont nous aurons besoin</h2>
+    </div>
+    <div class="pieces-liste">
+      <ul>
+        
+        <li>Relevé de carrière</li>
+        
+        <li>Bulletins de pension ou de salaire</li>
+        
+        <li>Notification de pension (si déjà liquidée)</li>
+        
+      </ul>
+    </div>
+  </div>
+</section>
+
+
+<section id="dossier">
+  <div class="wrap">
+    <div class="formulaire-section">
+      <div class="formulaire-grid">
+        <div>
+          <h2>Vérifier mon dossier</h2>
+          <p>Laissez-nous votre nom et votre e-mail : on vous recontacte sous 48 h pour vous indiquer comment nous transmettre vos documents en toute sécurité.</p>
+          <p style="font-size:0.9rem; color:var(--ink-soft);">Aucune carte bancaire n'est demandée, à aucune étape, tant que rien n'est récupéré.</p>
+        </div>
+        <div>
+          <form class="lead-form" id="form-lead" novalidate>
+            <label for="nom">Nom et prénom</label>
+            <input type="text" id="nom" name="nom" autocomplete="name" required>
+
+            <label for="email">Adresse e-mail</label>
+            <input type="email" id="email" name="email" autocomplete="email" required>
+
+            <div class="consentement">
+              <input type="checkbox" id="consentement" name="consentement" required>
+              <label for="consentement" style="font-weight:400; margin:0;">
+                J'accepte d'être contacté(e) par Juste Retour au sujet de mon dossier, et j'ai pris connaissance de la mention légale ci-dessous.
+              </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;">Être recontacté(e) sous 48 h</button>
+            <div id="form-message" class="form-message"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="mention-legale">
+  <div class="wrap">
+    <p><strong>Mention légale :</strong> Juste Retour propose une démarche de réclamation administrative fondée sur l&#39;analyse de vos documents de pension. Ce service ne constitue pas une consultation juridique au sens de la loi n° 71-1130 du 31 décembre 1971 réglementant la profession d&#39;avocat. En cas de désaccord persistant avec votre caisse de retraite, vous conservez à tout moment la possibilité de saisir le Médiateur de l&#39;Assurance retraite ou de consulter un avocat. Tout rappel d&#39;arriérés identifié reste soumis aux délais légaux applicables.</p>
+  </div>
+</section>
+
+<footer class="site">
+  <div class="wrap">
+    <p>© 2026 Juste Retour — Erreur de calcul de pension de retraite.</p>
+  </div>
+</footer>
+
+<script>
+  const API_BASE = window.JUSTE_RETOUR_API_BASE
+    || (location.protocol.startsWith("http") ? location.origin : "http://localhost:8000");
+  const VERTICAL = "pension_cnav";
+
+  // Attribution sans friction : UTM + code partenaire lus depuis l'URL,
+  // jamais demandés à l'utilisateur.
+  function lireAttribution() {
+    const params = new URLSearchParams(window.location.search);
+    const utm = {};
+    for (const [cle, valeur] of params.entries()) {
+      if (cle.startsWith("utm_")) utm[cle] = valeur;
+    }
+    const codePartenaire = params.get("ref") || params.get("code") || "";
+    let canal = "organique";
+    if (codePartenaire) canal = "partenaire";
+    else if (utm.utm_medium === "cpc" || utm.utm_source) canal = "ads";
+    return { canal: canal, source_id: codePartenaire || utm.utm_campaign || "", utm: utm };
+  }
+  const ATTRIBUTION = lireAttribution();
+
+  // Analytics : visite à l'arrivée, clic sur le CTA.
+  function envoyerEvenement(type) {
+    fetch(`${API_BASE}/evenements`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: type, vertical: VERTICAL, source_id: ATTRIBUTION.source_id, utm: ATTRIBUTION.utm }),
+    }).catch(function () {});
+  }
+  envoyerEvenement("visite");
+  document.querySelectorAll('a[href="#dossier"], a[data-cta]').forEach(function (lien) {
+    lien.addEventListener("click", function () { envoyerEvenement("clic"); });
+    // L'attribution (?ref=, utm_*) suit le visiteur jusqu'à l'app client.
+    if (lien.getAttribute("href") && !lien.getAttribute("href").startsWith("#") && window.location.search) {
+      lien.setAttribute("href", lien.getAttribute("href") + window.location.search);
+    }
+  });
+
+  document.getElementById("form-lead").addEventListener("submit", async function (evenement) {
+    evenement.preventDefault();
+    const nom = document.getElementById("nom").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const messageBox = document.getElementById("form-message");
+    messageBox.className = "form-message";
+    messageBox.textContent = "";
+
+    try {
+      const reponse = await fetch(`${API_BASE}/leads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nom: nom, email: email, vertical: VERTICAL, acquisition: ATTRIBUTION }),
+      });
+      if (!reponse.ok) throw new Error("Erreur serveur");
+      await reponse.json();
+      messageBox.className = "form-message ok";
+      messageBox.textContent = "Votre demande est bien enregistrée. On vous recontacte sous 48 h.";
+      document.getElementById("form-lead").reset();
+    } catch (erreur) {
+      messageBox.className = "form-message err";
+      messageBox.textContent = "Une erreur est survenue. Merci de réessayer dans quelques instants.";
+    }
+  });
+</script>
+
+</body>
+</html>

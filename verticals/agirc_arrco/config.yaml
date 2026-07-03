@@ -1,0 +1,68 @@
+# verticals/agirc_arrco/config.yaml
+# Vertical "erreurs de retraite complémentaire Agirc-Arrco" (calcul par points).
+# STATUT DRAFT : squelette de config uniquement, aucun pipeline, aucune landing
+# publiée. Candidat n°2 après depot_garantie — cf. README.md de ce dossier.
+#
+# TOUTES les valeurs légales et paramètres de calcul restent à null avec
+# source: null et validated_by_lawyer: false tant qu'ils ne sont pas sourcés
+# (texte officiel + date) puis validés par avocat.
+
+slug: agirc_arrco
+nom_public: "Erreur de retraite complémentaire Agirc-Arrco"
+status: draft               # draft : squelette non publié — jamais de landing, de verdict AUTO ni d'envoi
+
+# ─────────────────────────── Landing (non publiée en draft) ───────────────────────────
+hook: "Votre retraite complémentaire Agirc-Arrco a peut-être été mal calculée."
+sous_titre: >
+  Le montant de votre complémentaire dépend de vos points acquis et de la
+  valeur du point. Nous vérifions la cohérence de vos points reportés avec
+  votre carrière, et préparons une réclamation chiffrée si un écart apparaît.
+etapes:
+  - "Vous envoyez votre relevé de points Agirc-Arrco et vos bulletins de salaire."
+  - "On compare les points reportés à ceux que vos cotisations auraient dû produire."
+  - "Si un écart est confirmé, on rédige la réclamation chiffrée à votre groupe de protection sociale."
+
+stats: []                   # aucune stat publiée tant qu'aucun chiffre sourcé n'est disponible
+
+mentions_legales: >
+  Service d'assistance à la réclamation administrative. Ne constitue pas une
+  consultation juridique au sens de la loi n° 71-1130 du 31 décembre 1971.
+
+# ─────────────────── Juridique / paramètres de calcul ───────────────────
+# Principe du calcul cible (déterministe) :
+#   pension_complementaire = points_acquis × valeur_du_point × coefficients
+# (coefficients de solidarité / majorations / minorations selon l'accord
+# national interprofessionnel en vigueur).
+juridique:
+  base_legale: null
+  source: null
+  validated_by_lawyer: false
+  valeur_du_point: null                  # source: null — publiée chaque année par l'Agirc-Arrco
+  salaire_reference_achat_point: null    # source: null
+  coefficient_solidarite: null           # source: null — dispositif supprimé ? à vérifier + sourcer
+  coefficients_majoration: null          # source: null — enfants nés/élevés, à sourcer
+  coefficients_minoration: null          # source: null — anticipation, à sourcer
+  taux_calcul_points: null               # source: null — taux contractuel vs taux d'acquisition
+  delai_prescription: null               # source: null — TODO_LAWYER
+  voie_recours: null                     # source: null — réclamation GPS puis médiateur Agirc-Arrco, à documenter
+  statut_validation_avocat: "en_attente"
+
+pieces:
+  - "relevé de points Agirc-Arrco"
+  - "bulletins de salaire"
+  - "notification de retraite complémentaire"
+
+regle_eligibilite_auto: []  # à définir au moment de la promotion du vertical
+
+seuils_auto:
+  confiance_min: null
+  montant_plafond_auto: null
+  recouvrabilite_min: null
+
+# mode : sans objet sans pipeline (status ci-dessus fait foi)
+
+# Destinataire = groupe de protection sociale (organisme professionnel) :
+# la LRE 100% électronique deviendra envisageable avec son consentement ;
+# hybride par défaut en attendant.
+canal_envoi: hybride
+prestataire_envoi: null

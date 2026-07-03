@@ -1,0 +1,12 @@
+fastapi>=0.115
+uvicorn[standard]>=0.34
+pydantic[email]>=2.10
+python-multipart>=0.0.20
+pdfplumber>=0.11
+pytesseract>=0.3.13
+pillow>=11.0
+pyyaml>=6.0
+jinja2>=3.1
+anthropic>=0.40
+pytest>=8.3
+httpx>=0.28

@@ -1,0 +1,118 @@
+# verticals/depot_garantie/config.yaml
+# Vertical "dépôt de garantie non restitué" (caution locative).
+# Valeurs SOURCÉES (Légifrance, Conseil constitutionnel, Cour de cassation).
+#
+# VERTICAL PRIMAIRE : pipeline complet, automatisation par défaut.
+# La vérification humaine se fait UNE FOIS, à l'entrée du vertical (avocat) :
+# tant que statut_validation_avocat != valide ou regime_recouvrement !=
+# valide, le review_agent route tout en EXCEPTION. Dès que l'avocat valide
+# (bascule des deux champs ci-dessous), les dossiers sans blocage ni mauvais
+# score auto-procèdent et partent automatiquement — sans autre changement.
+
+slug: depot_garantie
+nom_public: "Dépôt de garantie non restitué"
+status: active              # draft | smoke_test | paused | active (champ unique de cycle de vie)
+app_url: /app/              # parcours client servi par le backend (frontend/index.html)
+
+# ─────────────────────────── Landing ───────────────────────────
+hook: "Votre propriétaire ne vous a pas rendu votre caution dans les délais ?"
+sous_titre: >
+  Passé le délai légal, chaque mois de retard vous donne droit à une majoration.
+  Envoyez votre bail et vos états des lieux : on calcule ce qui vous est dû et on
+  rédige la mise en demeure. Vous ne payez que si vous récupérez.
+etapes:
+  - "Vous envoyez votre bail, l'état des lieux d'entrée et de sortie, et la preuve de remise des clés."
+  - "On vérifie le délai dépassé et on calcule la majoration légale due."
+  - "On rédige la mise en demeure chiffrée à votre bailleur. Vous validez, elle part en recommandé."
+
+# STATS : uniquement des faits sourcés. Pas de chiffre inventé.
+stats:
+  - valeur: "1 mois"
+    libelle: "délai de restitution si l'état des lieux de sortie est conforme à l'entrée"
+    source: "Art. 22 loi n° 89-462 du 6 juillet 1989 (mod. loi ALUR 2014-366)"
+  - valeur: "2 mois"
+    libelle: "délai si l'état des lieux de sortie diffère de l'entrée"
+    source: "Art. 22 loi n° 89-462 du 6 juillet 1989"
+  - valeur: "+10 %"
+    libelle: "du loyer mensuel hors charges par mois de retard commencé, dû de plein droit"
+    source: "Art. 22 loi n° 89-462 ; Cass. 3e civ. 24 juin 2019, n° 17-31.286"
+  - valeur: "0 €"
+    libelle: "à payer tant que vous n'avez rien récupéré"
+    source: "modèle au succès (interne)"
+
+mentions_legales: >
+  Service d'assistance à la réclamation, agissant comme mandataire du locataire.
+  Ne constitue pas une consultation juridique au sens de la loi n° 71-1130 du
+  31 décembre 1971.
+
+# ─────────────────── Juridique (paramètres, jamais en dur dans le code) ───────────────────
+juridique:
+  base_legale: "Article 22, loi n° 89-462 du 6 juillet 1989 (modifié par loi ALUR n° 2014-366 du 24 mars 2014)"
+  delai_restitution_conforme_jours: 30      # état des lieux sortie = entrée
+  delai_restitution_non_conforme_jours: 60  # états des lieux différents
+  point_depart: "remise des clés (en main propre ou LRAR)"
+  majoration_taux: 0.10                      # 10 %
+  majoration_assiette: "loyer mensuel en principal (hors charges)"
+  majoration_unite: "par période mensuelle commencée en retard"
+  majoration_de_plein_droit: true
+  provision_copropriete_max: 0.20            # le bailleur peut retenir jusqu'à 20% jusqu'à l'arrêté des comptes
+  # Exception légale : pas de majoration si le locataire n'a pas transmis sa nouvelle adresse.
+  exception_majoration: "absence de transmission de la nouvelle adresse par le locataire"
+  # À CONFIRMER PAR AVOCAT avant passage en auto :
+  delai_prescription: null                   # a priori 3 ans (art. 7-1 loi 89-462) — à confirmer
+  voie_recours: "Commission départementale de conciliation (gratuite), puis juge des contentieux de la protection (tribunal judiciaire) ou injonction de payer"
+  statut_validation_avocat: "en_attente"     # en_attente | valide
+
+# ─────────────────── ⚠️ Second régime juridique à valider ───────────────────
+# Contrairement à la retraite (réclamation à une administration), ce vertical
+# consiste à RÉCUPÉRER UNE CRÉANCE due au client par un tiers (le bailleur).
+# Il peut donc relever du RECOUVREMENT AMIABLE DE CRÉANCES POUR COMPTE D'AUTRUI
+# (décret n° 96-1112 du 18 décembre 1996, art. R.124-1 et s. CPCE) : mandat écrit
+# obligatoire, mentions imposées dans la mise en demeure, et surtout règles
+# strictes si des FONDS transitent par nous (compte dédié). RECOMMANDATION COO :
+# ne jamais encaisser les fonds — la restitution va directement du bailleur au
+# client — pour limiter l'exposition. À FAIRE VALIDER PAR AVOCAT.
+regime_recouvrement:
+  applicable: "a_confirmer"
+  reference: "Décret n° 96-1112 du 18 décembre 1996 (recouvrement amiable pour compte d'autrui)"
+  regle_interne: "ne pas encaisser les fonds ; restitution directe bailleur → client"
+
+# ─────────────────── Pièces attendues ───────────────────
+pieces:
+  - "contrat de bail"
+  - "état des lieux d'entrée"
+  - "état des lieux de sortie"
+  - "preuve de remise des clés (LRAR ou récépissé) avec date"
+  - "justificatif de transmission de la nouvelle adresse au bailleur"
+
+# ─────────────────── Automatisation ───────────────────
+# Le calcul de la majoration est déterministe et simple :
+#   majoration = 10% × loyer_HC × nb_mois_commencés_de_retard
+# (implémenté dans calc_plugin.py, taux et délais lus depuis ce fichier).
+# MAIS le MONTANT NET dû dépend des retenues du bailleur (dégradations, impayés).
+# → Seul le cas "propre" est éligible à l'auto ; tout litige sur les retenues = EXCEPTION.
+regle_eligibilite_auto:
+  - "état des lieux de sortie CONFORME à l'entrée (aucune dégradation opposable)"
+  - "aucune retenue contestée du bailleur (pas de litige factuel sur des dégradations/impayés)"
+  - "remise des clés datée et prouvée"
+  - "nouvelle adresse transmise au bailleur (sinon exception de majoration)"
+  - "délai légal dépassé"
+# Si une seule condition manque → verdict EXCEPTION (revue humaine / escalade).
+
+seuils_auto:
+  confiance_min: 0.85
+  montant_plafond_auto: 5000.0 # seuil business : dépôt (≤ 2 mois de loyer) + majoration tiennent très en dessous ; au-delà, revue humaine
+  recouvrabilite_min: 0.5      # filtre économique (cf. core/outcomes/scoring.py) ; en dessous → EXCEPTION low_recoverability
+
+# Automatisation par défaut : le verrou n'est PAS le mode mais la validation
+# avocat ci-dessus. `supervise_lancement` et `suspendu` restent disponibles
+# comme kill switch runtime (POST /admin/verticals/{slug}/mode).
+mode: auto
+
+# ─────────────────── Envoi ───────────────────
+# Destinataire = bailleur. Souvent un PARTICULIER → LRE 100% électronique exige
+# son consentement. Canal par défaut = HYBRIDE (dépôt API → distribution papier),
+# valable pour particulier comme pour agence. LRE électronique possible seulement
+# si le bailleur est un pro ayant consenti.
+canal_envoi: hybride
+prestataire_envoi: null        # prestataire qualifié eIDAS / liste ANSSI, à brancher

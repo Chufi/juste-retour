@@ -1,0 +1,70 @@
+# verticals/frais_bancaires/config.yaml
+# Vertical "frais bancaires irréguliers" — SMOKE TEST uniquement : landing de
+# mesure de demande + capture de leads. Aucun pipeline, aucun calcul, aucun
+# courrier. Toute valeur juridique reste à null (source: null,
+# validated_by_lawyer: false) tant que non sourcée puis validée par avocat.
+
+slug: frais_bancaires
+nom_public: "Frais bancaires irréguliers"
+status: smoke_test          # landing + leads publiés, aucun pipeline — jamais de verdict AUTO ni d'envoi
+
+# ─────────────────────────── Landing ───────────────────────────
+hook: "Des frais bancaires prélevés sans explication claire ?"
+sous_titre: >
+  Frais d'incident, commissions d'intervention, frais de rejet : leur montant
+  est plafonné et leur facturation encadrée. Envoyez vos relevés : on vérifie
+  ce qui vous a été prélevé et, si des frais irréguliers apparaissent, on
+  prépare la réclamation chiffrée à votre banque. Vous ne payez que si vous
+  récupérez.
+etapes:
+  - "Vous envoyez vos relevés de compte des derniers mois."
+  - "On identifie les frais prélevés et on les compare aux plafonds et conditions applicables."
+  - "Si des frais irréguliers sont confirmés, on rédige la réclamation chiffrée à votre banque."
+
+# STATS : uniquement des faits sourcés — aucun chiffre public sourcé n'est
+# encore vérifié pour ce vertical, donc seule la promesse interne est affichée.
+stats:
+  - valeur: "0 €"
+    libelle: "à payer tant que vous n'avez rien récupéré"
+    source: "modèle au succès (interne)"
+
+mentions_legales: >
+  Service d'assistance à la réclamation, agissant comme mandataire du client.
+  Ne constitue pas une consultation juridique au sens de la loi n° 71-1130 du
+  31 décembre 1971.
+
+# ─────────────────── Juridique (tout à sourcer avant construction) ───────────────────
+juridique:
+  base_legale: null                      # source: null — plafonds des commissions d'intervention et frais d'incident, à sourcer
+  source: null
+  validated_by_lawyer: false
+  plafond_commission_intervention: null  # source: null
+  plafond_frais_rejet: null              # source: null
+  delai_prescription: null               # source: null — TODO_LAWYER
+  voie_recours: null                     # source: null — service réclamations banque puis médiateur bancaire, à documenter
+  statut_validation_avocat: "en_attente"
+
+# ⚠️ Comme depot_garantie : récupération d'une somme auprès d'un TIERS PRIVÉ
+# (la banque) → régime du recouvrement amiable pour compte d'autrui à valider.
+regime_recouvrement:
+  applicable: "a_confirmer"
+  reference: "Décret n° 96-1112 du 18 décembre 1996 (recouvrement amiable pour compte d'autrui)"
+  regle_interne: "ne pas encaisser les fonds ; remboursement direct banque → client"
+
+pieces:
+  - "relevés de compte (12 derniers mois)"
+  - "convention de compte ou plaquette tarifaire"
+
+regle_eligibilite_auto: []   # à définir si le smoke test désigne ce vertical
+
+seuils_auto:
+  confiance_min: null
+  montant_plafond_auto: null
+  recouvrabilite_min: null
+
+# mode : sans objet sans pipeline (status ci-dessus fait foi)
+
+# Destinataire = banque (professionnel) : LRE 100% électronique envisageable
+# avec consentement ; hybride par défaut en attendant.
+canal_envoi: hybride
+prestataire_envoi: null

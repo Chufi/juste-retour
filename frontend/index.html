@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Juste Retour — Récupérer mon dépôt de garantie</title>
+<meta name="description" content="Vérifiez en quelques minutes ce que votre bailleur vous doit et laissez-nous préparer la mise en demeure. Gratuit tant que vous n'avez rien récupéré.">
+<style>
+  :root {
+    --marine: #1b2a4a;
+    --marine-deep: #101a30;
+    --cream: #faf6ec;
+    --paper: #f3ecdd;
+    --ochre: #a5762c;
+    --ochre-deep: #8a611f;
+    --ink: #21242c;
+    --ink-soft: #4a4f5c;
+    --ligne: #ddd3bd;
+    --vert: #2f6b46;
+    --vert-fond: #e8f2ea;
+    --rouge: #a33d3d;
+    --rouge-fond: #f6e9e9;
+    --serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--sans); font-size: 18px; line-height: 1.6; color: var(--ink); background: var(--cream); }
+  h1, h2, h3 { font-family: var(--serif); color: var(--marine-deep); line-height: 1.25; margin: 0 0 0.4em 0; }
+  h1 { font-size: 1.9rem; }
+  h2 { font-size: 1.4rem; }
+  p { margin: 0 0 1em 0; }
+  a { color: var(--marine); }
+
+  header.site { background: var(--marine-deep); color: #f2ede1; padding: 16px 0; }
+  header.site .wrap { display: flex; justify-content: space-between; align-items: center; }
+  .logo { font-family: var(--serif); font-size: 1.3rem; color: #fff; text-decoration: none; }
+  .logo .marque { color: var(--ochre); }
+  .badge { font-size: 0.85rem; color: #cdd6e6; }
+
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 22px; }
+
+  /* Stepper */
+  .stepper { display: flex; gap: 6px; margin: 28px 0 22px; }
+  .stepper .pas { flex: 1; height: 6px; border-radius: 3px; background: var(--ligne); }
+  .stepper .pas.actif { background: var(--ochre); }
+  .stepper .pas.fait { background: var(--marine); }
+  .etape-titre { font-size: 0.85rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+
+  .carte { background: #fff; border: 1px solid var(--ligne); border-radius: 12px; padding: 30px 28px; margin-bottom: 40px; }
+
+  label { display: block; font-weight: 600; font-size: 0.95rem; color: var(--marine-deep); margin: 18px 0 6px; }
+  label .aide { display: block; font-weight: 400; font-size: 0.85rem; color: var(--ink-soft); }
+  input[type="text"], input[type="email"], input[type="number"], input[type="date"] {
+    width: 100%; padding: 13px 14px; font-size: 1.05rem; font-family: var(--sans);
+    border: 1px solid #c7bfa8; border-radius: 6px; background: var(--cream);
+  }
+  input:focus { outline: 3px solid var(--ochre); outline-offset: 1px; }
+
+  .choix { display: flex; gap: 10px; flex-wrap: wrap; }
+  .choix input[type="radio"] { position: absolute; opacity: 0; }
+  .choix label.bouton-choix {
+    margin: 0; font-weight: 500; cursor: pointer; padding: 11px 18px;
+    border: 1.5px solid #c7bfa8; border-radius: 6px; background: var(--cream); font-size: 0.98rem;
+  }
+  .choix input[type="radio"]:checked + label.bouton-choix { border-color: var(--marine); background: var(--marine); color: #fff; }
+  .choix input[type="radio"]:focus-visible + label.bouton-choix { outline: 3px solid var(--ochre); }
+
+  .case { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0; font-size: 0.95rem; }
+  .case input { margin-top: 5px; transform: scale(1.15); }
+  .case label { margin: 0; font-weight: 400; }
+
+  .btn { display: inline-block; font-size: 1.05rem; font-weight: 600; padding: 15px 28px; border-radius: 6px;
+         border: 2px solid transparent; cursor: pointer; font-family: var(--sans); transition: background-color 0.15s; }
+  .btn-primary { background: var(--ochre); color: #fff; }
+  .btn-primary:hover { background: var(--ochre-deep); }
+  .btn-primary:disabled { background: #c9b689; cursor: wait; }
+  .btn-ghost { background: transparent; border-color: #c7bfa8; color: var(--ink-soft); }
+  .actions { display: flex; justify-content: space-between; gap: 14px; margin-top: 28px; }
+
+  .message-erreur { display: none; margin-top: 16px; background: var(--rouge-fond); color: var(--rouge);
+                    border: 1px solid #e3c3c3; border-radius: 6px; padding: 12px 16px; font-size: 0.95rem; }
+  .message-erreur.visible { display: block; }
+
+  .rassurance { background: var(--paper); border: 1px solid var(--ligne); border-radius: 8px;
+                padding: 14px 18px; font-size: 0.88rem; color: var(--ink-soft); margin-top: 22px; }
+
+  /* Résultat */
+  .montant-hero { text-align: center; padding: 10px 0 4px; }
+  .montant-hero .montant { font-family: var(--serif); font-size: 3.2rem; color: var(--marine-deep); display: block; }
+  .montant-hero .sous { color: var(--ink-soft); font-size: 0.95rem; }
+  .detail-calcul { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.95rem; }
+  .detail-calcul td { padding: 9px 4px; border-bottom: 1px solid var(--ligne); }
+  .detail-calcul td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .detail-calcul tr.total td { font-weight: 700; color: var(--marine-deep); border-bottom: none; }
+  .statut-bandeau { border-radius: 8px; padding: 16px 20px; font-size: 0.98rem; margin: 18px 0; }
+  .statut-bandeau.ok { background: var(--vert-fond); color: var(--vert); border: 1px solid #bfdcc7; }
+  .statut-bandeau.attente { background: #fff8ec; color: var(--ochre-deep); border: 1px solid #e8d2a0; }
+  details.courrier { margin-top: 14px; }
+  details.courrier summary { cursor: pointer; font-weight: 600; color: var(--marine); }
+  details.courrier pre { white-space: pre-wrap; font-family: var(--serif); font-size: 0.92rem;
+                         background: var(--paper); border: 1px solid var(--ligne); border-radius: 8px; padding: 18px; }
+
+  .fichiers-liste { font-size: 0.9rem; color: var(--ink-soft); margin-top: 8px; }
+
+  footer.site { background: var(--marine-deep); color: #b9c0d0; padding: 22px 0; font-size: 0.82rem; margin-top: 30px; }
+  .cache { display: none !important; }
+
+  @media (max-width: 620px) {
+    .actions { flex-direction: column-reverse; }
+    .actions .btn { width: 100%; text-align: center; }
+    h1 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a href="../landing/depot_garantie/" class="logo"><span class="marque">Juste</span>&nbsp;Retour</a>
+    <span class="badge">🔒 Gratuit tant que vous n'avez rien récupéré</span>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="stepper" id="stepper" aria-hidden="true">
+    <div class="pas" data-pas="1"></div>
+    <div class="pas" data-pas="2"></div>
+    <div class="pas" data-pas="3"></div>
+    <div class="pas" data-pas="4"></div>
+    <div class="pas" data-pas="5"></div>
+  </div>
+
+  <!-- Étape 1 : coordonnées -->
+  <section class="carte" id="etape-1">
+    <p class="etape-titre">Étape 1 sur 5</p>
+    <h1>Vérifions ensemble ce que votre bailleur vous doit</h1>
+    <p>Quelques minutes suffisent. Vous ne payez rien tant que vous n'avez pas récupéré votre argent.</p>
+
+    <label for="nom">Nom et prénom</label>
+    <input type="text" id="nom" autocomplete="name" required>
+
+    <label for="email">Adresse e-mail
+      <span class="aide">Pour vous tenir informé(e) de l'avancée de votre dossier.</span>
+    </label>
+    <input type="email" id="email" autocomplete="email" required>
+
+    <div class="actions">
+      <span></span>
+      <button class="btn btn-primary" id="btn-1">Commencer ma vérification</button>
+    </div>
+    <div class="message-erreur" id="erreur-1"></div>
+    <div class="rassurance">Vos informations ne servent qu'au traitement de votre dossier. Aucune carte bancaire ne vous sera demandée.</div>
+  </section>
+
+  <!-- Étape 2 : situation -->
+  <section class="carte cache" id="etape-2">
+    <p class="etape-titre">Étape 2 sur 5</p>
+    <h2>Votre location</h2>
+
+    <label for="loyer">Loyer mensuel hors charges (€)</label>
+    <input type="number" id="loyer" min="0" step="0.01" inputmode="decimal">
+
+    <label for="depot">Dépôt de garantie versé à l'entrée (€)</label>
+    <input type="number" id="depot" min="0" step="0.01" inputmode="decimal">
+
+    <label for="restitue">Montant déjà restitué par le bailleur (€)
+      <span class="aide">0 si vous n'avez rien reçu.</span>
+    </label>
+    <input type="number" id="restitue" min="0" step="0.01" value="0" inputmode="decimal">
+
+    <label for="date-cles">Date de remise des clés</label>
+    <input type="date" id="date-cles">
+
+    <label>L'état des lieux de sortie est-il conforme à celui d'entrée ?</label>
+    <div class="choix">
+      <input type="radio" name="edl" id="edl-oui" value="oui"><label class="bouton-choix" for="edl-oui">Oui, conforme</label>
+      <input type="radio" name="edl" id="edl-non" value="non"><label class="bouton-choix" for="edl-non">Non, des différences</label>
+    </div>
+
+    <label>Avez-vous transmis votre nouvelle adresse au bailleur ?</label>
+    <div class="choix">
+      <input type="radio" name="adresse" id="adresse-oui" value="oui"><label class="bouton-choix" for="adresse-oui">Oui</label>
+      <input type="radio" name="adresse" id="adresse-non" value="non"><label class="bouton-choix" for="adresse-non">Pas encore</label>
+    </div>
+
+    <label for="retenues">Retenues annoncées par le bailleur (€)
+      <span class="aide">0 si aucune retenue ne vous a été signifiée.</span>
+    </label>
+    <input type="number" id="retenues" min="0" step="0.01" value="0" inputmode="decimal">
+
+    <div id="bloc-contestation" class="cache">
+      <label>Contestez-vous ces retenues ?</label>
+      <div class="choix">
+        <input type="radio" name="conteste" id="conteste-non" value="non"><label class="bouton-choix" for="conteste-non">Non, elles sont justifiées</label>
+        <input type="radio" name="conteste" id="conteste-oui" value="oui"><label class="bouton-choix" for="conteste-oui">Oui, je les conteste</label>
+      </div>
+    </div>
+
+    <label>Votre bailleur est :</label>
+    <div class="choix">
+      <input type="radio" name="bailleur" id="bailleur-part" value="particulier"><label class="bouton-choix" for="bailleur-part">Un particulier</label>
+      <input type="radio" name="bailleur" id="bailleur-pro" value="pro"><label class="bouton-choix" for="bailleur-pro">Une agence / un professionnel</label>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-ghost" data-retour="1">Retour</button>
+      <button class="btn btn-primary" id="btn-2">Continuer</button>
+    </div>
+    <div class="message-erreur" id="erreur-2"></div>
+  </section>
+
+  <!-- Étape 3 : pièces -->
+  <section class="carte cache" id="etape-3">
+    <p class="etape-titre">Étape 3 sur 5</p>
+    <h2>Vos justificatifs</h2>
+    <p>Cochez les pièces que vous possédez, et joignez-les si vous les avez sous la main (PDF ou photo).</p>
+
+    <div id="liste-pieces"><!-- checkboxes injectées depuis l'API --></div>
+
+    <label for="fichiers">Joindre mes documents
+      <span class="aide">Facultatif à cette étape — vous pourrez aussi nous les envoyer plus tard.</span>
+    </label>
+    <input type="file" id="fichiers" multiple accept=".pdf,.png,.jpg,.jpeg">
+    <div class="fichiers-liste" id="fichiers-liste"></div>
+
+    <div class="actions">
+      <button class="btn btn-ghost" data-retour="2">Retour</button>
+      <button class="btn btn-primary" id="btn-3">Continuer</button>
+    </div>
+    <div class="message-erreur" id="erreur-3"></div>
+  </section>
+
+  <!-- Étape 4 : mandat -->
+  <section class="carte cache" id="etape-4">
+    <p class="etape-titre">Étape 4 sur 5</p>
+    <h2>Votre accord pour agir en votre nom</h2>
+    <p>Pour réclamer votre dépôt de garantie auprès de votre bailleur, nous avons besoin de votre mandat. Il ne vous engage à aucun paiement : notre rémunération n'est due que si vous récupérez effectivement une somme.</p>
+
+    <div class="case">
+      <input type="checkbox" id="mandat-consent">
+      <label for="mandat-consent">Je mandate Juste Retour pour adresser en mon nom une réclamation amiable à mon bailleur au sujet de mon dépôt de garantie. Je reste libre d'interrompre la démarche à tout moment, sans frais.</label>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-ghost" data-retour="3">Retour</button>
+      <button class="btn btn-primary" id="btn-4">Valider et lancer l'analyse</button>
+    </div>
+    <div class="message-erreur" id="erreur-4"></div>
+    <div class="rassurance">Réclamation administrative amiable — ceci n'est pas une consultation juridique au sens de la loi n° 71-1130 du 31 décembre 1971. Si votre bailleur vous doit une somme, elle vous sera versée directement : nous n'encaissons jamais les fonds à votre place.</div>
+  </section>
+
+  <!-- Étape 5 : résultat -->
+  <section class="carte cache" id="etape-5">
+    <p class="etape-titre">Étape 5 sur 5 — Résultat</p>
+    <div id="resultat"><!-- injecté --></div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    © 2026 Juste Retour — Service d'assistance à la réclamation, mandataire du locataire.
+    Ne constitue pas une consultation juridique au sens de la loi n° 71-1130 du 31 décembre 1971.
+  </div>
+</footer>
+
+<script>
+  const API_BASE = window.JUSTE_RETOUR_API_BASE
+    || (location.protocol.startsWith("http") ? location.origin : "http://localhost:8000");
+  const VERTICAL = "depot_garantie";
+
+  let dossierId = null;
+  let piecesConfig = [];
+
+  // --- Attribution sans friction (UTM + code partenaire depuis l'URL) ---
+  function lireAttribution() {
+    const params = new URLSearchParams(window.location.search);
+    const utm = {};
+    for (const [cle, valeur] of params.entries()) {
+      if (cle.startsWith("utm_")) utm[cle] = valeur;
+    }
+    const codePartenaire = params.get("ref") || params.get("code") || "";
+    let canal = "organique";
+    if (codePartenaire) canal = "partenaire";
+    else if (utm.utm_medium === "cpc" || utm.utm_source) canal = "ads";
+    return { canal: canal, source_id: codePartenaire || utm.utm_campaign || "", utm: utm };
+  }
+  const ATTRIBUTION = lireAttribution();
+
+  fetch(`${API_BASE}/evenements`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "visite", vertical: VERTICAL, source_id: ATTRIBUTION.source_id, utm: ATTRIBUTION.utm }),
+  }).catch(() => {});
+
+  // --- Navigation entre étapes ---
+  function allerEtape(n) {
+    for (let i = 1; i <= 5; i++) {
+      document.getElementById(`etape-${i}`).classList.toggle("cache", i !== n);
+    }
+    document.querySelectorAll("#stepper .pas").forEach((el) => {
+      const pas = Number(el.dataset.pas);
+      el.classList.toggle("fait", pas < n);
+      el.classList.toggle("actif", pas === n);
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  document.querySelectorAll("[data-retour]").forEach((btn) => {
+    btn.addEventListener("click", () => allerEtape(Number(btn.dataset.retour)));
+  });
+
+  function montrerErreur(n, texte) {
+    const boite = document.getElementById(`erreur-${n}`);
+    boite.textContent = texte;
+    boite.classList.add("visible");
+  }
+  function cacherErreur(n) {
+    document.getElementById(`erreur-${n}`).classList.remove("visible");
+  }
+  async function appelApi(chemin, options) {
+    const reponse = await fetch(`${API_BASE}${chemin}`, options);
+    if (!reponse.ok) {
+      let detail = "";
+      try { detail = JSON.stringify((await reponse.json()).detail); } catch (e) {}
+      throw new Error(detail || `Erreur ${reponse.status}`);
+    }
+    return reponse.json();
+  }
+
+  // --- Pièces attendues (depuis la config du vertical) ---
+  fetch(`${API_BASE}/verticals/${VERTICAL}`)
+    .then((r) => r.json())
+    .then((infos) => {
+      piecesConfig = infos.pieces || [];
+      const conteneur = document.getElementById("liste-pieces");
+      conteneur.innerHTML = piecesConfig
+        .map(
+          (piece, i) => `
+        <div class="case">
+          <input type="checkbox" id="piece-${i}" value="${piece}" checked>
+          <label for="piece-${i}">${piece.charAt(0).toUpperCase() + piece.slice(1)}</label>
+        </div>`
+        )
+        .join("");
+    })
+    .catch(() => {});
+
+  // --- Étape 1 : création du dossier ---
+  document.getElementById("btn-1").addEventListener("click", async () => {
+    cacherErreur(1);
+    const nom = document.getElementById("nom").value.trim();
+    const email = document.getElementById("email").value.trim();
+    if (!nom || !email.includes("@")) {
+      montrerErreur(1, "Merci d'indiquer votre nom et une adresse e-mail valide.");
+      return;
+    }
+    const bouton = document.getElementById("btn-1");
+    bouton.disabled = true;
+    try {
+      const corps = { nom, email, vertical: VERTICAL, acquisition: ATTRIBUTION };
+      const reponse = await appelApi("/dossiers", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps),
+      });
+      dossierId = reponse.dossier_id;
+      allerEtape(2);
+    } catch (e) {
+      montrerErreur(1, "Impossible de créer votre dossier pour le moment. Merci de réessayer dans quelques instants.");
+    } finally {
+      bouton.disabled = false;
+    }
+  });
+
+  // --- Étape 2 : validation locale de la situation ---
+  document.getElementById("retenues").addEventListener("input", (e) => {
+    const montant = parseFloat(e.target.value || "0");
+    document.getElementById("bloc-contestation").classList.toggle("cache", !(montant > 0));
+  });
+
+  function lireRadio(nom) {
+    const coche = document.querySelector(`input[name="${nom}"]:checked`);
+    return coche ? coche.value : null;
+  }
+
+  document.getElementById("btn-2").addEventListener("click", () => {
+    cacherErreur(2);
+    const champs = {
+      loyer: document.getElementById("loyer").value,
+      depot: document.getElementById("depot").value,
+      dateCles: document.getElementById("date-cles").value,
+      edl: lireRadio("edl"),
+      adresse: lireRadio("adresse"),
+      bailleur: lireRadio("bailleur"),
+    };
+    if (!champs.loyer || !champs.depot || !champs.dateCles || !champs.edl || !champs.adresse || !champs.bailleur) {
+      montrerErreur(2, "Merci de renseigner tous les champs pour que le calcul soit exact.");
+      return;
+    }
+    const retenues = parseFloat(document.getElementById("retenues").value || "0");
+    if (retenues > 0 && !lireRadio("conteste")) {
+      montrerErreur(2, "Merci d'indiquer si vous contestez les retenues annoncées.");
+      return;
+    }
+    allerEtape(3);
+  });
+
+  // --- Étape 3 : déclaration + upload ---
+  document.getElementById("fichiers").addEventListener("change", (e) => {
+    const noms = Array.from(e.target.files).map((f) => f.name);
+    document.getElementById("fichiers-liste").textContent = noms.length
+      ? `${noms.length} fichier(s) : ${noms.join(", ")}` : "";
+  });
+
+  document.getElementById("btn-3").addEventListener("click", async () => {
+    cacherErreur(3);
+    const bouton = document.getElementById("btn-3");
+    bouton.disabled = true;
+    try {
+      const piecesFournies = Array.from(
+        document.querySelectorAll("#liste-pieces input:checked")
+      ).map((c) => c.value);
+
+      const declaration = {
+        champs: {
+          loyer_hc_mensuel: parseFloat(document.getElementById("loyer").value),
+          depot_verse: parseFloat(document.getElementById("depot").value),
+          montant_restitue: parseFloat(document.getElementById("restitue").value || "0"),
+          date_remise_cles: document.getElementById("date-cles").value,
+          edl_sortie_conforme: lireRadio("edl") === "oui",
+          nouvelle_adresse_transmise: lireRadio("adresse") === "oui",
+          retenues_bailleur: parseFloat(document.getElementById("retenues").value || "0"),
+          retenues_contestees: lireRadio("conteste") === "oui",
+        },
+        type_debiteur: lireRadio("bailleur") || "particulier",
+        pieces_fournies: piecesFournies,
+      };
+      await appelApi(`/dossiers/${dossierId}/declaration`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(declaration),
+      });
+
+      const fichiers = document.getElementById("fichiers").files;
+      if (fichiers.length > 0) {
+        const donnees = new FormData();
+        for (const fichier of fichiers) donnees.append("fichiers", fichier);
+        await appelApi(`/dossiers/${dossierId}/documents`, { method: "POST", body: donnees });
+      }
+      allerEtape(4);
+    } catch (e) {
+      montrerErreur(3, "L'enregistrement a échoué. Merci de réessayer.");
+    } finally {
+      bouton.disabled = false;
+    }
+  });
+
+  // --- Étape 4 : mandat → analyse automatique ---
+  document.getElementById("btn-4").addEventListener("click", async () => {
+    cacherErreur(4);
+    if (!document.getElementById("mandat-consent").checked) {
+      montrerErreur(4, "Merci de cocher la case de mandat pour que nous puissions agir en votre nom.");
+      return;
+    }
+    const bouton = document.getElementById("btn-4");
+    bouton.disabled = true;
+    bouton.textContent = "Analyse en cours…";
+    try {
+      const reponse = await appelApi(`/dossiers/${dossierId}/mandat`, { method: "POST" });
+      let analyse = reponse.analyse_automatique;
+      if (!analyse) {
+        // Dossier incomplet côté serveur (ex. aucune pièce jointe) : on
+        // demande l'analyse explicitement pour afficher un résultat chiffré.
+        try {
+          analyse = await appelApi(`/dossiers/${dossierId}/analyser`, { method: "POST" });
+        } catch (e) {
+          analyse = null;
+        }
+      }
+      afficherResultat(analyse);
+      allerEtape(5);
+    } catch (e) {
+      montrerErreur(4, "L'analyse n'a pas pu être lancée. Merci de réessayer.");
+    } finally {
+      bouton.disabled = false;
+      bouton.textContent = "Valider et lancer l'analyse";
+    }
+  });
+
+  // --- Étape 5 : résultat ---
+  function euros(montant) {
+    return (montant ?? 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
+  }
+
+  function afficherResultat(analyse) {
+    const conteneur = document.getElementById("resultat");
+
+    if (!analyse) {
+      conteneur.innerHTML = `
+        <h2>Votre dossier est bien enregistré</h2>
+        <div class="statut-bandeau attente">Il nous manque encore quelques éléments pour calculer précisément ce qui vous est dû.
+        Notre équipe vous recontacte sous 48 h à l'adresse indiquée pour finaliser votre dossier — référence n°${dossierId}.</div>`;
+      return;
+    }
+
+    const details = analyse.calcul_moteur.details || {};
+    const montant = analyse.calcul_moteur.montant_estime || 0;
+    const verdictAuto = analyse.verdict && analyse.verdict.decision === "AUTO";
+
+    let bandeau;
+    if (verdictAuto && analyse.envoi) {
+      bandeau = `<div class="statut-bandeau ok">✓ Votre mise en demeure est partie en lettre recommandée.
+        Vous serez informé(e) par e-mail de la réponse de votre bailleur — référence n°${dossierId}.</div>`;
+    } else if (montant > 0) {
+      bandeau = `<div class="statut-bandeau attente">Votre dossier est pris en charge : un membre de notre équipe
+        vérifie votre réclamation avant l'envoi du courrier (sous 48 h). Vous n'avez rien d'autre à faire — référence n°${dossierId}.</div>`;
+    } else {
+      bandeau = `<div class="statut-bandeau attente">D'après les éléments fournis, aucune somme n'apparaît exigible
+        à ce jour (délai légal non expiré ou dépôt déjà restitué). Notre équipe revérifie votre situation et
+        vous écrit sous 48 h — référence n°${dossierId}.</div>`;
+    }
+
+    const lignes = [];
+    if (details.principal_restant_du !== undefined) {
+      lignes.push(`<tr><td>Solde du dépôt de garantie à récupérer</td><td>${euros(details.principal_restant_du)}</td></tr>`);
+      lignes.push(`<tr><td>Majoration légale de retard (${details.nb_mois_retard_commences ?? 0} mois commencé(s))</td><td>${euros(details.majoration_legale)}</td></tr>`);
+      lignes.push(`<tr class="total"><td>Total réclamé à votre bailleur</td><td>${euros(montant)}</td></tr>`);
+    }
+
+    conteneur.innerHTML = `
+      <h2>Ce que votre bailleur vous doit, selon nos calculs</h2>
+      <div class="montant-hero"><span class="montant">${euros(montant)}</span>
+        <span class="sous">estimation fondée sur l'article 22 de la loi du 6 juillet 1989</span></div>
+      ${lignes.length ? `<table class="detail-calcul">${lignes.join("")}</table>` : ""}
+      ${bandeau}
+      ${analyse.projet_courrier ? `
+      <details class="courrier">
+        <summary>Voir le projet de mise en demeure préparé pour vous</summary>
+        <pre>${analyse.projet_courrier.replace(/</g, "&lt;")}</pre>
+      </details>` : ""}
+      <div class="rassurance">Rappel : vous ne payez que si vous récupérez effectivement une somme. La restitution
+      se fait directement de votre bailleur vers vous — nous n'encaissons jamais les fonds.</div>`;
+  }
+
+  allerEtape(1);
+</script>
+
+</body>
+</html>

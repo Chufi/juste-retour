@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+backend/juste_retour.db
+backend/uploads/
+.env
+.pytest_cache/

@@ -1,0 +1,97 @@
+# verticals/pension_cnav/config.yaml
+# Vertical "erreur de calcul de pension de retraite" (régime général, Cnav).
+# Premier vertical construit ; dispose du pipeline complet (extraction →
+# calcul → analyse → courrier).
+#
+# ⚠️ GELÉ (status: paused, décision v3) : le développement de ce vertical est
+# suspendu au profit de depot_garantie (vertical primaire). Rien n'est
+# supprimé ; un vertical `paused` ne peut jamais émettre de verdict AUTO ni
+# déclencher d'envoi (cf. core/review_agent.py et le garde d'envoi).
+
+slug: pension_cnav
+nom_public: "Erreur de calcul de pension de retraite"
+status: paused               # draft | smoke_test | paused | active (champ unique de cycle de vie)
+
+# ─────────────────────────── Landing ───────────────────────────
+hook: "Votre pension de retraite a peut-être été mal calculée."
+sous_titre: >
+  Juste Retour vérifie le calcul de votre pension (régime général et
+  Agirc-Arrco) à partir de vos relevés et bulletins, et prépare — si une
+  erreur est trouvée — une réclamation chiffrée adressée à votre caisse.
+etapes:
+  - "Vous envoyez votre relevé de carrière et vos derniers bulletins de pension (ou de salaire), en toute confidentialité."
+  - "Notre moteur de calcul vérifie le salaire annuel moyen, les trimestres validés et les majorations, et repère les incohérences."
+  - "Si une erreur est confirmée, nous rédigeons un projet de réclamation chiffré, prêt à être envoyé à votre caisse."
+
+# STATS : uniquement des faits sourcés. Pas de chiffre inventé.
+stats:
+  - valeur: "1 pension sur 9"
+    libelle: "liquidée en 2025 comportait une erreur ayant une portée financière"
+    source: "Cour des comptes, certification des comptes de la Sécurité sociale, 2025"
+  - valeur: "Jusqu'à 10 000 €"
+    libelle: "de préjudice possible sur la durée de versement de la pension, selon la nature de l'erreur constatée"
+    source: "Cour des comptes, certification des comptes de la Sécurité sociale, 2025"
+  - valeur: "0 €"
+    libelle: "à payer avant de savoir si votre dossier comporte une erreur"
+    source: "modèle au succès (interne)"
+
+mentions_legales: >
+  Juste Retour propose une démarche de réclamation administrative fondée sur
+  l'analyse de vos documents de pension. Ce service ne constitue pas une
+  consultation juridique au sens de la loi n° 71-1130 du 31 décembre 1971
+  réglementant la profession d'avocat. En cas de désaccord persistant avec
+  votre caisse de retraite, vous conservez à tout moment la possibilité de
+  saisir le Médiateur de l'Assurance retraite ou de consulter un avocat. Tout
+  rappel d'arriérés identifié reste soumis aux délais légaux applicables.
+
+# ─────────────────── Juridique (paramètres, jamais en dur dans le code) ───────────────────
+juridique:
+  base_legale: "Code de la sécurité sociale, art. L351-1 et R351-29 et s. (salaire annuel moyen, régime général)"
+  nombre_meilleures_annees_sam: 25
+  taux_plein_pourcentage: 50.0
+  majoration_trois_enfants_pourcentage: 10.0
+  minimum_contributif_mensuel: 733.03      # TODO_LAWYER : valeur 2024 indicative non sourcée formellement (cf. LEGAL_OPEN_POINTS.md)
+  delai_cra_mois: 2
+  trimestres_par_an: 4
+  trimestres_requis_taux_plein_defaut: 172  # TODO_LAWYER : simplification MVP, varie selon l'année de naissance (cf. LEGAL_OPEN_POINTS.md)
+  # À CONFIRMER PAR AVOCAT avant passage en mode auto :
+  delai_prescription: null                  # le délai opposable au rappel n'est pas tranché en droit
+  voie_recours: "Commission de Recours Amiable (CRA), puis Médiateur de l'Assurance retraite (mediateur@cnav.fr, gratuit), puis pôle social du tribunal judiciaire"
+  statut_validation_avocat: "en_attente"    # en_attente | valide
+
+# ─────────────────── Pièces attendues ───────────────────
+pieces:
+  - "relevé de carrière"
+  - "bulletins de pension ou de salaire"
+  - "notification de pension (si déjà liquidée)"
+
+# ─────────────────── Automatisation ───────────────────
+# Le calcul du SAM et du rappel est déterministe (verticals/pension_cnav/sam.py,
+# rappel.py). Reste réservé à l'EXCEPTION tout dossier avec un champ illisible,
+# une fiabilité OCR non "haute", ou une anomalie de type litige/incohérence
+# qu'un opérateur doit trancher.
+regle_eligibilite_auto:
+  - "fiabilité OCR haute sur tous les documents du dossier"
+  - "aucun champ critique illisible ou manquant"
+  - "confiance des anomalies >= seuil configuré"
+  - "montant du rappel estimé <= plafond configuré"
+  - "mandat de réclamation signé par le client présent au dossier"
+
+seuils_auto:
+  confiance_min: 0.85
+  montant_plafond_auto: 5000.0
+  recouvrabilite_min: 0.5   # filtre économique (cf. core/outcomes/scoring.py) ; seuil business, ajustable sans redéploiement
+
+# Vertical gelé : le mode est sans effet tant que status = paused (aucun
+# verdict AUTO, aucun envoi). À la reprise, même logique qu'ailleurs :
+# validation avocat = le seul verrou, puis automatisation par défaut.
+mode: auto
+
+# ─────────────────── Envoi ───────────────────
+# Destinataire = caisse de retraite (Carsat/Cnav, GIP Agirc-Arrco) = une
+# administration : la LRE 100% électronique exige son consentement, qui n'est
+# pas acquis. Canal par défaut = HYBRIDE (dépôt API → La Poste imprime et
+# distribue en papier) : aucun consentement requis, accepté par toutes les
+# administrations.
+canal_envoi: hybride
+prestataire_envoi: null   # prestataire qualifié eIDAS / liste ANSSI, à brancher (ex. Docaposte-Maileva, AR24)
