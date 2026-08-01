@@ -18,6 +18,7 @@ spécifiques à un vertical dans `verticals/<slug>/calc_plugin.py`.
 from __future__ import annotations
 
 import json
+import secrets
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -76,7 +77,8 @@ def init_db() -> None:
                 preuves_envoi TEXT,              -- JSON
                 acquisition_canal TEXT NOT NULL DEFAULT 'organique',
                 acquisition_source_id TEXT NOT NULL DEFAULT '',
-                acquisition_utm TEXT NOT NULL DEFAULT '{}'
+                acquisition_utm TEXT NOT NULL DEFAULT '{}',
+                token TEXT NOT NULL DEFAULT ''
             );
 
             CREATE TABLE IF NOT EXISTS documents (
@@ -252,13 +254,17 @@ def creer_dossier(
     acquisition_canal: str = "organique",
     acquisition_source_id: str = "",
     acquisition_utm: Optional[dict] = None,
-) -> int:
+) -> tuple[int, str]:
+    """Crée le dossier et son jeton d'accès (`token`) : seul le client qui le
+    détient (reçu à la création) peut ensuite lire/compléter ce dossier via
+    l'API publique — un identifiant séquentiel seul ne suffit pas (IDOR)."""
+    token = secrets.token_urlsafe(24)
     with get_connection() as conn:
         cur = conn.execute(
             """INSERT INTO dossiers
                (vertical_slug, nom, email, statut, cree_le,
-                acquisition_canal, acquisition_source_id, acquisition_utm)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                acquisition_canal, acquisition_source_id, acquisition_utm, token)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 vertical_slug,
                 nom,
@@ -268,9 +274,10 @@ def creer_dossier(
                 acquisition_canal,
                 acquisition_source_id,
                 json.dumps(acquisition_utm or {}, ensure_ascii=False),
+                token,
             ),
         )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid), token
 
 
 def get_dossier(dossier_id: int) -> Optional[sqlite3.Row]:

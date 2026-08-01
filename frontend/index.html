@@ -269,6 +269,7 @@
   const VERTICAL = "depot_garantie";
 
   let dossierId = null;
+  let dossierToken = null;
   let piecesConfig = [];
 
   // --- Attribution sans friction (UTM + code partenaire depuis l'URL) ---
@@ -316,7 +317,9 @@
     document.getElementById(`erreur-${n}`).classList.remove("visible");
   }
   async function appelApi(chemin, options) {
-    const reponse = await fetch(`${API_BASE}${chemin}`, options);
+    const headers = new Headers(options.headers || {});
+    if (dossierToken) headers.set("X-Dossier-Token", dossierToken);
+    const reponse = await fetch(`${API_BASE}${chemin}`, { ...options, headers });
     if (!reponse.ok) {
       let detail = "";
       try { detail = JSON.stringify((await reponse.json()).detail); } catch (e) {}
@@ -360,6 +363,7 @@
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps),
       });
       dossierId = reponse.dossier_id;
+      dossierToken = reponse.token;
       allerEtape(2);
     } catch (e) {
       montrerErreur(1, "Impossible de créer votre dossier pour le moment. Merci de réessayer dans quelques instants.");

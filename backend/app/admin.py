@@ -7,14 +7,21 @@ titre que les actions humaines.
 RBAC (MVP) : rôle porté par le header `X-Role`, identité par `X-Acteur`.
 C'est un STUB à remplacer par une vraie authentification avant toute mise
 en production — le contrôle d'accès par rôle et le moindre privilège sont
-en place, seul le mécanisme d'identification est simulé.
+en place, seul le mécanisme d'identification est simulé. Tant qu'aucune
+authentification réelle n'existe, quiconque atteint l'API peut s'auto-
+déclarer `X-Role: admin` ; définir `ADMIN_API_TOKEN` (variable d'env.) exige
+en plus un jeton partagé (`X-Admin-Token`) pour toute route `/admin/*`,
+ce qui ferme l'accès à un attaquant qui n'aurait que le rôle en clair.
+Ne remplace pas une vraie authentification (jeton unique, pas par acteur).
 
 Rôles : operateur < juridique < dpo / admin (moindre privilège par endpoint).
 """
 
 from __future__ import annotations
 
+import hmac
 import json
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -27,6 +34,8 @@ from . import models
 from .services import config_ou_404, dossier_ou_404, executer_envoi
 
 router = APIRouter(prefix="/admin", tags=["back-office"])
+
+ADMIN_API_TOKEN = os.environ.get("ADMIN_API_TOKEN")
 
 ROLES_VALIDES = {"operateur", "juridique", "dpo", "admin"}
 
@@ -43,7 +52,10 @@ class Habilitation(BaseModel):
 def _identite(
     x_role: str = Header(..., alias="X-Role"),
     x_acteur: str = Header("inconnu", alias="X-Acteur"),
+    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
 ) -> Habilitation:
+    if ADMIN_API_TOKEN and not (x_admin_token and hmac.compare_digest(x_admin_token, ADMIN_API_TOKEN)):
+        raise HTTPException(403, "Jeton d'administration manquant ou invalide.")
     if x_role not in ROLES_VALIDES:
         raise HTTPException(403, f"Rôle inconnu : {x_role}")
     return Habilitation(acteur=x_acteur, role=x_role)

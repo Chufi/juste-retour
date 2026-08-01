@@ -30,6 +30,9 @@ cd backend && pip install -r requirements.txt   # ou depuis un venv
 sudo apt-get install tesseract-ocr tesseract-ocr-fra ocrmypdf
 # facultatif, pour le rapport d'anomalies LLM :
 export ANTHROPIC_API_KEY=sk-ant-...
+# fortement recommandé en production : jeton partagé exigé sur toute route
+# /admin/* en plus du header X-Role (qui reste un stub d'identification MVP) :
+export ADMIN_API_TOKEN=un-secret-long-et-aleatoire
 ```
 
 ## Lancer le backend
@@ -58,16 +61,25 @@ postent les leads sur `POST /leads`.
 
 ## Flux depot_garantie de bout en bout
 
+`POST /dossiers` renvoie, en plus de `dossier_id`, un `token` : c'est la
+preuve de possession du dossier. Toutes les routes `/dossiers/{id}/*`
+suivantes (déclaration, documents, mandat, analyser, envoyer, outcome, et le
+`GET /dossiers/{id}`) l'exigent via le header `X-Dossier-Token` — sans quoi
+un identifiant séquentiel comme `1`, `2`, `3`... permettrait à n'importe qui
+de lire les dossiers de tout le monde (nom, e-mail, montant réclamé...).
+
 ```bash
-# 1. Dossier (avec attribution partenaire facultative)
+# 1. Dossier (avec attribution partenaire facultative) → renvoie dossier_id + token
 curl -X POST localhost:8000/dossiers -H "Content-Type: application/json" -d '{
   "nom": "Jeanne Martin", "email": "jeanne@example.com",
   "vertical": "depot_garantie",
   "acquisition": {"canal": "partenaire", "source_id": "ADIL75", "utm": {}}
 }'
+TOKEN="<valeur de "token" reçue ci-dessus>"
 
 # 2. Déclaration des faits + pièces
-curl -X POST localhost:8000/dossiers/1/declaration -H "Content-Type: application/json" -d '{
+curl -X POST localhost:8000/dossiers/1/declaration -H "Content-Type: application/json" \
+  -H "X-Dossier-Token: $TOKEN" -d '{
   "champs": {"loyer_hc_mensuel": 800, "depot_verse": 800, "montant_restitue": 0,
              "edl_sortie_conforme": true, "nouvelle_adresse_transmise": true,
              "date_remise_cles": "2026-01-15"},
@@ -76,8 +88,9 @@ curl -X POST localhost:8000/dossiers/1/declaration -H "Content-Type: application
                       "preuve de remise des clés (LRAR ou récépissé) avec date",
                       "justificatif de transmission de la nouvelle adresse au bailleur"]
 }'
-curl -X POST localhost:8000/dossiers/1/documents -F "fichiers=@bail.pdf"   # pièces justificatives
-curl -X POST localhost:8000/dossiers/1/mandat                              # mandat signé (MVP)
+curl -X POST localhost:8000/dossiers/1/documents -H "X-Dossier-Token: $TOKEN" \
+  -F "fichiers=@bail.pdf"                                                  # pièces justificatives
+curl -X POST localhost:8000/dossiers/1/mandat -H "X-Dossier-Token: $TOKEN"  # mandat signé (MVP)
 # ↑ Dès que le dossier est complet, l'analyse se lance TOUTE SEULE (la réponse
 #   contient "analyse_automatique") et, sur verdict AUTO, le courrier part seul.
 #   POST /dossiers/1/analyser reste disponible pour relancer explicitement.
@@ -87,9 +100,12 @@ curl -X POST localhost:8000/dossiers/1/mandat                              # man
 curl -X POST localhost:8000/admin/dossiers/1/traiter \
   -H "X-Role: operateur" -H "X-Acteur: bob" -H "Content-Type: application/json" \
   -d '{"action": "approuver_envoi"}'
+# ↑ si ADMIN_API_TOKEN est défini côté serveur, ajouter aussi
+#   -H "X-Admin-Token: $ADMIN_API_TOKEN" à toute requête /admin/*.
 
 # Boucle de résultats (nourrit le scoring de recouvrabilité)
 curl -X POST localhost:8000/dossiers/1/outcome -H "Content-Type: application/json" \
+  -H "X-Dossier-Token: $TOKEN" \
   -d '{"statut": "paye_total", "montant_recouvre": 1120.0, "delai_paiement_jours": 21}'
 ```
 

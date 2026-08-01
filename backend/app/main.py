@@ -16,6 +16,7 @@ Lancement local (depuis la racine du repo) :
 
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import re
@@ -24,7 +25,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import pdfplumber
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -92,6 +93,20 @@ def infos_vertical(slug: str) -> dict:
 # ─────────────────────────── Dossiers ───────────────────────────
 
 
+def _dossier_avec_token(dossier_id: int, x_dossier_token: Optional[str]) -> Any:
+    """Vérifie que l'appelant détient le jeton du dossier avant de l'exposer.
+
+    `dossier_id` est un entier séquentiel : sans ce contrôle, n'importe qui
+    pourrait énumérer /dossiers/1, /2, ... et lire les données personnelles
+    (nom, e-mail, déclaration, pièces) de tous les dossiers. On répond 404
+    plutôt que 403 pour ne pas confirmer l'existence du dossier à qui n'a
+    pas le jeton."""
+    dossier = _dossier_ou_404(dossier_id)
+    if not hmac.compare_digest(dossier["token"] or "", x_dossier_token or ""):
+        raise HTTPException(404, "Dossier introuvable")
+    return dossier
+
+
 @app.post("/dossiers", status_code=201)
 def creer_dossier(payload: CreationDossier) -> dict:
     config = _config_ou_404(payload.vertical)
@@ -102,7 +117,7 @@ def creer_dossier(payload: CreationDossier) -> dict:
             f"Le vertical '{payload.vertical}' est en status '{status_effectif}' : "
             "aucun nouveau dossier n'est accepté (capture de leads uniquement, POST /leads).",
         )
-    dossier_id = models.creer_dossier(
+    dossier_id, token = models.creer_dossier(
         nom=payload.nom,
         email=payload.email,
         vertical_slug=payload.vertical,
@@ -111,7 +126,7 @@ def creer_dossier(payload: CreationDossier) -> dict:
         acquisition_utm=payload.acquisition.utm,
     )
     models.journaliser("systeme", "systeme", "dossier_cree", dossier_id, payload.vertical)
-    return {"dossier_id": dossier_id}
+    return {"dossier_id": dossier_id, "token": token}
 
 
 class Declaration(BaseModel):
@@ -125,8 +140,10 @@ class Declaration(BaseModel):
 
 
 @app.post("/dossiers/{dossier_id}/declaration")
-def enregistrer_declaration(dossier_id: int, payload: Declaration) -> dict:
-    _dossier_ou_404(dossier_id)
+def enregistrer_declaration(
+    dossier_id: int, payload: Declaration, x_dossier_token: str = Header(..., alias="X-Dossier-Token")
+) -> dict:
+    _dossier_avec_token(dossier_id, x_dossier_token)
     models.maj_dossier(
         dossier_id,
         declaration=json.dumps(
@@ -145,10 +162,12 @@ def enregistrer_declaration(dossier_id: int, payload: Declaration) -> dict:
 
 
 @app.post("/dossiers/{dossier_id}/mandat")
-def enregistrer_mandat(dossier_id: int) -> dict:
+def enregistrer_mandat(
+    dossier_id: int, x_dossier_token: str = Header(..., alias="X-Dossier-Token")
+) -> dict:
     """MVP : enregistre la présence d'un mandat signé (l'e-signature réelle
     n'est pas construite ce sprint). Sans mandat, aucun envoi possible."""
-    _dossier_ou_404(dossier_id)
+    _dossier_avec_token(dossier_id, x_dossier_token)
     models.maj_dossier(dossier_id, mandat_signe=1)
     models.journaliser("systeme", "systeme", "mandat_enregistre", dossier_id)
     reponse = {"dossier_id": dossier_id, "mandat_signe": True}
@@ -216,8 +235,12 @@ def _traiter_bulletin(path: Path, filename: str, dossier_id: int) -> list[str]:
 
 
 @app.post("/dossiers/{dossier_id}/documents")
-def uploader_documents(dossier_id: int, fichiers: list[UploadFile] = File(...)) -> dict:
-    dossier = _dossier_ou_404(dossier_id)
+def uploader_documents(
+    dossier_id: int,
+    fichiers: list[UploadFile] = File(...),
+    x_dossier_token: str = Header(..., alias="X-Dossier-Token"),
+) -> dict:
+    dossier = _dossier_avec_token(dossier_id, x_dossier_token)
     slug = dossier["vertical_slug"]
 
     dossier_uploads = UPLOADS_DIR / str(dossier_id)
@@ -227,7 +250,13 @@ def uploader_documents(dossier_id: int, fichiers: list[UploadFile] = File(...)) 
     documents_traites: list[dict] = []
 
     for fichier in fichiers:
-        chemin = dossier_uploads / fichier.filename
+        # `.name` élimine tout séparateur de chemin ("/", "..") ainsi que les
+        # chemins absolus fournis par le client — sans ça, un nom de fichier
+        # tel que "../../frontend/index.html" écrirait hors de uploads/.
+        nom_fichier = Path(fichier.filename or "").name
+        if not nom_fichier or nom_fichier in (".", ".."):
+            raise HTTPException(400, "Nom de fichier invalide.")
+        chemin = dossier_uploads / nom_fichier
         with chemin.open("wb") as f:
             shutil.copyfileobj(fichier.file, f)
 
@@ -239,7 +268,7 @@ def uploader_documents(dossier_id: int, fichiers: list[UploadFile] = File(...)) 
                 champs_illisibles += _traiter_releve_carriere(chemin, dossier_id)
             else:
                 type_document, fiabilite = TypeDocument.BULLETIN_PAIE, Fiabilite.MOYENNE
-                champs_illisibles += _traiter_bulletin(chemin, fichier.filename, dossier_id)
+                champs_illisibles += _traiter_bulletin(chemin, nom_fichier, dossier_id)
         else:
             # Verticaux déclaratifs (depot_garantie) : les pièces sont
             # archivées comme justificatifs ; le calcul se fait sur la
@@ -253,10 +282,10 @@ def uploader_documents(dossier_id: int, fichiers: list[UploadFile] = File(...)) 
                 pages = len(pdf.pages)
 
         doc_id = models.ajouter_document(
-            dossier_id, fichier.filename, type_document, pages, fiabilite, str(chemin)
+            dossier_id, nom_fichier, type_document, pages, fiabilite, str(chemin)
         )
         documents_traites.append(
-            {"document_id": doc_id, "fichier": fichier.filename, "type": type_document.value}
+            {"document_id": doc_id, "fichier": nom_fichier, "type": type_document.value}
         )
 
     statut = StatutDossier.CHAMPS_MANQUANTS if champs_illisibles else StatutDossier.DOCUMENTS_RECUS
@@ -451,17 +480,18 @@ def _auto_analyser_si_pret(dossier_id: int) -> Optional[dict]:
 
 
 @app.post("/dossiers/{dossier_id}/analyser")
-def analyser(dossier_id: int) -> dict:
+def analyser(dossier_id: int, x_dossier_token: str = Header(..., alias="X-Dossier-Token")) -> dict:
     """Relance explicite de l'analyse (l'analyse se déclenche normalement
     toute seule dès que le dossier est complet)."""
+    _dossier_avec_token(dossier_id, x_dossier_token)
     return _executer_analyse(dossier_id)
 
 
 @app.post("/dossiers/{dossier_id}/envoyer")
-def envoyer(dossier_id: int) -> dict:
+def envoyer(dossier_id: int, x_dossier_token: str = Header(..., alias="X-Dossier-Token")) -> dict:
     """Déclenchement système de l'envoi — réservé aux dossiers en verdict AUTO.
     Un dossier EXCEPTION ne part que via le back-office (revue humaine)."""
-    dossier = _dossier_ou_404(dossier_id)
+    dossier = _dossier_avec_token(dossier_id, x_dossier_token)
     if dossier["verdict"] != Verdict.AUTO.value:
         raise HTTPException(
             409,
@@ -472,11 +502,11 @@ def envoyer(dossier_id: int) -> dict:
 
 
 @app.get("/dossiers/{dossier_id}")
-def get_dossier(dossier_id: int) -> dict:
-    dossier = _dossier_ou_404(dossier_id)
+def get_dossier(dossier_id: int, x_dossier_token: str = Header(..., alias="X-Dossier-Token")) -> dict:
+    dossier = _dossier_avec_token(dossier_id, x_dossier_token)
     outcome = models.get_outcome(dossier_id)
     return {
-        **{k: dossier[k] for k in dossier.keys()},
+        **{k: dossier[k] for k in dossier.keys() if k != "token"},
         "documents": [dict(d) for d in models.get_documents(dossier_id)],
         "annees_carriere": [dict(a) for a in models.get_annees_carriere(dossier_id)],
         "outcome": dict(outcome) if outcome else None,
@@ -496,8 +526,10 @@ class MajOutcome(BaseModel):
 
 
 @app.post("/dossiers/{dossier_id}/outcome")
-def maj_outcome(dossier_id: int, payload: MajOutcome) -> dict:
-    dossier = _dossier_ou_404(dossier_id)
+def maj_outcome(
+    dossier_id: int, payload: MajOutcome, x_dossier_token: str = Header(..., alias="X-Dossier-Token")
+) -> dict:
+    dossier = _dossier_avec_token(dossier_id, x_dossier_token)
     # Validation du contrat via le schéma core (statuts, canaux d'issue).
     try:
         Outcome(

@@ -19,6 +19,10 @@ def client(tmp_path, monkeypatch):
         yield c
 
 
+def _headers(token: str) -> dict:
+    return {"X-Dossier-Token": token}
+
+
 def declaration_valide():
     from core.config_loader import charger_config
 
@@ -38,7 +42,7 @@ def declaration_valide():
     }
 
 
-def creer_dossier_analyse(client) -> int:
+def creer_dossier_analyse(client) -> tuple[int, str]:
     r = client.post(
         "/dossiers",
         json={
@@ -49,10 +53,16 @@ def creer_dossier_analyse(client) -> int:
         },
     )
     assert r.status_code == 201
-    dossier_id = r.json()["dossier_id"]
-    assert client.post(f"/dossiers/{dossier_id}/declaration", json=declaration_valide()).status_code == 200
-    assert client.post(f"/dossiers/{dossier_id}/mandat").status_code == 200
-    return dossier_id
+    corps = r.json()
+    dossier_id, token = corps["dossier_id"], corps["token"]
+    assert (
+        client.post(
+            f"/dossiers/{dossier_id}/declaration", json=declaration_valide(), headers=_headers(token)
+        ).status_code
+        == 200
+    )
+    assert client.post(f"/dossiers/{dossier_id}/mandat", headers=_headers(token)).status_code == 200
+    return dossier_id, token
 
 
 # --- Front (app client + landings + infos publiques) ---------------------------
@@ -89,12 +99,43 @@ def test_infos_vertical_publiques_sans_donnees_sensibles(client):
     assert "statut_validation_avocat" not in r.text
 
 
+# --- Sécurité : jeton de dossier -------------------------------------------------
+
+
+def test_dossier_inaccessible_sans_le_bon_jeton(client):
+    dossier_id, token = creer_dossier_analyse(client)
+
+    # Sans jeton du tout.
+    assert client.get(f"/dossiers/{dossier_id}").status_code == 422  # header requis
+    # Avec un jeton erroné : 404, pas 403, pour ne pas confirmer l'existence.
+    assert client.get(f"/dossiers/{dossier_id}", headers=_headers("mauvais-jeton")).status_code == 404
+    # Avec le bon jeton : accès normal.
+    assert client.get(f"/dossiers/{dossier_id}", headers=_headers(token)).status_code == 200
+    # Le jeton d'un AUTRE dossier ne doit pas non plus fonctionner.
+    _, autre_token = creer_dossier_analyse(client)
+    assert client.get(f"/dossiers/{dossier_id}", headers=_headers(autre_token)).status_code == 404
+
+
+def test_upload_rejette_un_nom_de_fichier_avec_traversee_de_chemin(client, tmp_path):
+    dossier_id, token = creer_dossier_analyse(client)
+    r = client.post(
+        f"/dossiers/{dossier_id}/documents",
+        files={"fichiers": ("../../../evil.txt", b"contenu", "text/plain")},
+        headers=_headers(token),
+    )
+    assert r.status_code == 200
+    # Le fichier est resté cantonné au dossier de uploads/, jamais écrit hors de son périmètre.
+    fichier_attendu = tmp_path / "uploads" / str(dossier_id) / "evil.txt"
+    assert fichier_attendu.exists()
+    assert not (tmp_path / "evil.txt").exists()
+
+
 # --- Pipeline depot_garantie ------------------------------------------------
 
 
 def test_pipeline_depot_garantie_exception_sans_validation_avocat(client):
-    dossier_id = creer_dossier_analyse(client)
-    r = client.post(f"/dossiers/{dossier_id}/analyser")
+    dossier_id, token = creer_dossier_analyse(client)
+    r = client.post(f"/dossiers/{dossier_id}/analyser", headers=_headers(token))
     assert r.status_code == 200
     corps = r.json()
 
@@ -119,16 +160,17 @@ def test_analyser_refuse_si_declaration_incomplete(client):
         "/dossiers",
         json={"nom": "Y", "email": "y@example.com", "vertical": "depot_garantie"},
     )
-    dossier_id = r.json()["dossier_id"]
-    r = client.post(f"/dossiers/{dossier_id}/analyser")
+    corps = r.json()
+    dossier_id, token = corps["dossier_id"], corps["token"]
+    r = client.post(f"/dossiers/{dossier_id}/analyser", headers=_headers(token))
     assert r.status_code == 409
     assert r.json()["detail"]["champs"]
 
 
 def test_envoi_systeme_refuse_sur_exception(client):
-    dossier_id = creer_dossier_analyse(client)
-    client.post(f"/dossiers/{dossier_id}/analyser")
-    r = client.post(f"/dossiers/{dossier_id}/envoyer")
+    dossier_id, token = creer_dossier_analyse(client)
+    client.post(f"/dossiers/{dossier_id}/analyser", headers=_headers(token))
+    r = client.post(f"/dossiers/{dossier_id}/envoyer", headers=_headers(token))
     assert r.status_code == 409
 
 
@@ -136,8 +178,8 @@ def test_envoi_systeme_refuse_sur_exception(client):
 
 
 def test_exception_visible_puis_approuvee_et_envoyee(client):
-    dossier_id = creer_dossier_analyse(client)
-    client.post(f"/dossiers/{dossier_id}/analyser")
+    dossier_id, token = creer_dossier_analyse(client)
+    client.post(f"/dossiers/{dossier_id}/analyser", headers=_headers(token))
 
     exceptions = client.get("/admin/exceptions", headers=OPERATEUR).json()["exceptions"]
     assert any(e["dossier_id"] == dossier_id for e in exceptions)
@@ -154,7 +196,7 @@ def test_exception_visible_puis_approuvee_et_envoyee(client):
     assert envoi["preuves"]["statut"] == "distribue"
 
     # L'outcome initial "envoye" est créé, l'audit tracé.
-    dossier = client.get(f"/dossiers/{dossier_id}").json()
+    dossier = client.get(f"/dossiers/{dossier_id}", headers=_headers(token)).json()
     assert dossier["outcome"]["statut"] == "envoye"
     audit = client.get("/admin/audit", headers=ADMIN).json()["audit"]
     assert any(a["action"] == "courrier_envoye" and a["acteur"] == "bob" for a in audit)
@@ -167,8 +209,8 @@ def test_rbac_role_inconnu_et_moindre_privilege(client):
 
 
 def test_kill_switch_paused_bloque_l_envoi_humain(client):
-    dossier_id = creer_dossier_analyse(client)
-    client.post(f"/dossiers/{dossier_id}/analyser")
+    dossier_id, token = creer_dossier_analyse(client)
+    client.post(f"/dossiers/{dossier_id}/analyser", headers=_headers(token))
 
     r = client.post(
         "/admin/verticals/depot_garantie/mode", json={"status": "paused"}, headers=ADMIN
@@ -189,8 +231,8 @@ def test_kill_switch_paused_bloque_l_envoi_humain(client):
 
 
 def test_escalade_verrouille_pour_operateur(client):
-    dossier_id = creer_dossier_analyse(client)
-    client.post(f"/dossiers/{dossier_id}/analyser")
+    dossier_id, token = creer_dossier_analyse(client)
+    client.post(f"/dossiers/{dossier_id}/analyser", headers=_headers(token))
     client.post(f"/admin/dossiers/{dossier_id}/escalader", headers=OPERATEUR)
 
     r = client.post(
@@ -247,8 +289,8 @@ def test_outcome_et_rapport_partenaire(client):
         headers=ADMIN,
     )
 
-    dossier_id = creer_dossier_analyse(client)
-    client.post(f"/dossiers/{dossier_id}/analyser")
+    dossier_id, token = creer_dossier_analyse(client)
+    client.post(f"/dossiers/{dossier_id}/analyser", headers=_headers(token))
     client.post(
         f"/admin/dossiers/{dossier_id}/traiter",
         json={"action": "approuver_envoi"},
@@ -257,6 +299,7 @@ def test_outcome_et_rapport_partenaire(client):
     r = client.post(
         f"/dossiers/{dossier_id}/outcome",
         json={"statut": "paye_total", "montant_recouvre": 1120.0, "delai_paiement_jours": 21},
+        headers=_headers(token),
     )
     assert r.status_code == 200
 
@@ -267,8 +310,10 @@ def test_outcome_et_rapport_partenaire(client):
 
 
 def test_outcome_statut_invalide_refuse(client):
-    dossier_id = creer_dossier_analyse(client)
-    r = client.post(f"/dossiers/{dossier_id}/outcome", json={"statut": "paye_peut_etre"})
+    dossier_id, token = creer_dossier_analyse(client)
+    r = client.post(
+        f"/dossiers/{dossier_id}/outcome", json={"statut": "paye_peut_etre"}, headers=_headers(token)
+    )
     assert r.status_code == 422
 
 
@@ -300,29 +345,33 @@ def test_automatisation_totale_apres_validation_avocat(client, vertical_valide_a
         "/dossiers",
         json={"nom": "Jeanne Martin", "email": "jeanne@example.com", "vertical": "depot_garantie"},
     )
-    dossier_id = r.json()["dossier_id"]
-    client.post(f"/dossiers/{dossier_id}/declaration", json=declaration_valide())
+    corps = r.json()
+    dossier_id, token = corps["dossier_id"], corps["token"]
+    client.post(
+        f"/dossiers/{dossier_id}/declaration", json=declaration_valide(), headers=_headers(token)
+    )
 
     # Pièce justificative avec couche texte → fiabilité haute.
     with open("tests/fixtures/releve_carriere_exemple.pdf", "rb") as f:
         client.post(
             f"/dossiers/{dossier_id}/documents",
             files={"fichiers": ("bail.pdf", f, "application/pdf")},
+            headers=_headers(token),
         )
 
     # Dernière brique : le mandat. L'analyse ET l'envoi partent tout seuls.
-    r = client.post(f"/dossiers/{dossier_id}/mandat")
+    r = client.post(f"/dossiers/{dossier_id}/mandat", headers=_headers(token))
     analyse = r.json()["analyse_automatique"]
     assert analyse["verdict"]["decision"] == "AUTO"
     assert analyse["verdict"]["motifs"] == []
     assert analyse["envoi"]["id_envoi"].startswith("mock-")
 
-    dossier = client.get(f"/dossiers/{dossier_id}").json()
+    dossier = client.get(f"/dossiers/{dossier_id}", headers=_headers(token)).json()
     assert dossier["id_envoi"] is not None
     assert dossier["outcome"]["statut"] == "envoye"
 
     # Relancer l'analyse ne renvoie pas le courrier une deuxième fois.
-    r = client.post(f"/dossiers/{dossier_id}/analyser")
+    r = client.post(f"/dossiers/{dossier_id}/analyser", headers=_headers(token))
     assert r.status_code == 200
     assert "envoi" not in r.json()
 
@@ -334,18 +383,20 @@ def test_blocage_reste_bloquant_meme_vertical_valide(client, vertical_valide_avo
         "/dossiers",
         json={"nom": "Cas Litigieux", "email": "l@example.com", "vertical": "depot_garantie"},
     )
-    dossier_id = r.json()["dossier_id"]
+    corps = r.json()
+    dossier_id, token = corps["dossier_id"], corps["token"]
     declaration = declaration_valide()
     declaration["champs"]["edl_sortie_conforme"] = False
     declaration["champs"]["retenues_bailleur"] = 300.0
     declaration["champs"]["retenues_contestees"] = True
-    client.post(f"/dossiers/{dossier_id}/declaration", json=declaration)
+    client.post(f"/dossiers/{dossier_id}/declaration", json=declaration, headers=_headers(token))
     with open("tests/fixtures/releve_carriere_exemple.pdf", "rb") as f:
         client.post(
             f"/dossiers/{dossier_id}/documents",
             files={"fichiers": ("bail.pdf", f, "application/pdf")},
+            headers=_headers(token),
         )
-    r = client.post(f"/dossiers/{dossier_id}/mandat")
+    r = client.post(f"/dossiers/{dossier_id}/mandat", headers=_headers(token))
     analyse = r.json()["analyse_automatique"]
     assert analyse["verdict"]["decision"] == "EXCEPTION"
     assert any("confiance" in m for m in analyse["verdict"]["motifs"])
